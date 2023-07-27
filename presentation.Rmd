@@ -1,0 +1,648 @@
+---
+title: "Diamond Price Prediction"
+author: "Shantanu Nayek"
+Supervisor: "Professor Deepayan Sarkar"
+date: ""
+output: ioslides_presentation
+css: custom.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+# Why Diamond Price Prediction?
+
+##
+
+- Honest confession is that , I searched for a good dataset to work with.
+
+- Then thought and searched is there a real significance of this prediction !
+
+- Gemstones like diamonds are always in demand because of their value in the investment market. 
+
+- Color, Clarity, Carat (size), Cut, Shape and Fluorescence are the major determinants of the price of diamonds. Difference in single grade or level will make the price change from 5% to 30%.
+
+
+
+
+
+
+
+## GOAL
+
+```{r}
+a0=data.frame(No.=1:2,GOAL=1:2)
+a0[,1]=c(1,2)
+a0[,2]=c("To study the relationships among the variables in the data.","To give some idea regarding the price prediction of the diamond based on the predictor variables given in the data.")
+knitr::kable(a0,format="markdown")
+```
+
+
+# THE DATA
+
+
+## The Data
+
+```{r}
+a0=data.frame(Point=1:4,Details=1:4)
+a0[,1]=c("Name","Source ","Description","Reponse Variable")
+a0[,2]=c("Diamonds","Kaggle","This classic dataset contains the prices and other attributes of almost 54,000 diamonds.","Price in US dollars (326–18,823)")
+knitr::kable(a0,format="markdown")
+```
+
+## The Data
+```{r}
+a0=data.frame(Predictors=1:9,Description=1:9)
+a0[,1]=c(" carat"," cut "," color","clarity ","x","y","z","depth","table")
+a0[,2]=c("weight of the diamond (0.2–5.01)","quality of the cut (Fair, Good, Very Good, Premium, Ideal)","diamond colour, from J (worst) to D (best)","a measurement of how clear the diamond is (I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best))","length in mm (0–10.74)","width in mm (0–58.9)","depth in mm (0–31.8)","total depth percentage = z / mean(x, y) = 2 * z / (x + y) (43–79)","width of top of diamond relative to widest point (43–95)")
+knitr::kable(a0,format="markdown")
+```
+
+
+## The Data at a glance
+```{r ,warning=FALSE , message=FALSE}
+library(lattice)
+library(fastDummies)
+library(caTools)
+library(glmnet)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(reshape)
+library(car)
+library(MASS)
+setwd("T:/DEEPAYAN SARKAR/PROJECTS/LaTeX")
+data=read.csv("Diamonds.csv")
+attach(data)
+str(data)
+data1=dummy_cols(data,select_columns = c('cut','color','clarity'))
+data2=data1[,-c(2,3,4,7,15,22,30)]
+
+```
+## The Data at a glance
+```{r}
+a2=head(data,16)
+knitr::kable(a2,format="markdown")
+```
+
+# EXPLORATORY DATA ANALYSIS
+
+## The Response variable
+```{r}
+library(ggplot2)
+ggplot(NULL,aes(x=price))+
+  geom_histogram(fill=2,col=1,bins=20,
+                 aes(y=..density..))+
+  labs(title="Histogram of Price",
+       x="\nPrice",
+       col="Index")
+
+```
+
+## Log Transformation of Response
+```{r}
+ggplot(NULL,aes(x=log(price)))+
+  geom_histogram(fill="#0077b3",col=1,bins=20,
+                 aes(y=..density..))+
+  labs(title="Histogram of log of Price",
+       x="\nlog(Price)",
+       col="Index")
+
+```
+
+
+## Box-Cox Transformation of Response
+```{r,warning=FALSE}
+new_data1=data1[,-c(1,4,5,8,16,23,31)]
+fm1=lm(data$price~.,new_data1)
+boxcox(fm1, lambda = seq(0.05, 0.12, 0.01), plotit = TRUE,grid=TRUE)
+```
+
+##
+
+```{r}
+y1111=((data$price^0.1)-1)/0.1
+ggplot(NULL,aes(x=y1111))+
+  geom_histogram(fill="#0077b3",col=1,bins=20,
+                 aes(y=..density..))+
+  labs(title="Histogram(Box-Cox Transformation)",
+       x="\nPrice(transformed by Box-Cox)",
+       col="Index")
+```
+
+
+## Other transformation
+
+```{r , warning=FALSE,message=FALSE}
+y1112=log(data$price-mean(data$price))^2
+ggplot(NULL,aes(x=y1112))+
+  geom_histogram(fill="#800080",col=1,bins=20,
+                 aes(y=..density..))+
+  labs(title="Histogram(Transformation : log(price-mean(price))^2)",
+       x="\nTransformed Price",
+       col="Index")
+```
+
+## Relationships among response variables and predictors
+
+```{r}
+ggplot(NULL,aes(x=carat,y=price))+
+  geom_point(size=1,col="#e6e600")+
+  labs(title="Scatterplot",
+       subtitle="Price vs Carat",
+       x="\nCarat",
+       y="Price",
+       col="Index")
+```
+
+##
+
+```{r}
+ggplot(NULL,aes(x=depth,y=price))+
+  geom_point(size=1,col=3)+
+  labs(title="Scatterplot",
+       subtitle="Price vs Depth",
+       x="\nDepth",
+       y="Price",
+       col="Index")
+
+```
+
+##
+
+```{r}
+ggplot(NULL,aes(x=table,y=price))+
+  geom_point(size=1.5,col=5)+
+  labs(title="Scatterplot",
+       subtitle="Price vs Table",
+       x="\nTable",
+       y="Price",
+       col="Index")
+
+```
+
+##
+
+```{r}
+ggplot(NULL,aes(x=x,y=price))+
+  geom_point(size=1,col=4)+
+  labs(title="Scatterplot",
+       subtitle="Price vs Length",
+       x="\nLength(in mm)",
+       y="Price",
+       col="Index")
+```
+
+##
+
+```{r}
+ggplot(NULL,aes(x=y,y=price))+
+  geom_point(size=1,col="#1f7a1f")+
+  labs(title="Scatterplot",
+       subtitle="Price vs Width",
+       x="\nWidth(in mm)",
+       y="Price",
+       col="Index")
+
+```
+
+##
+
+```{r}
+ggplot(NULL,aes(x=z,y=price))+
+  geom_point(size=1,col=7)+
+  labs(title="Scatterplot",
+       subtitle="Price vs Depth",
+       x="\nDepth(in mm)",
+       y="Price",
+       col="Index")
+```
+
+
+##
+
+```{r}
+ggplot(data=NULL,aes(x=as.factor(clarity),y=price,fill=clarity))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: Price vs Clarity',
+       x='Clarity',
+       y='Price of Diamond')
+```
+
+##
+
+```{r}
+ggplot(data=NULL,aes(x=as.factor(cut),y=price
+                     ,fill=cut))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: Price vs Cut',
+       x='Cut',
+       y='Price of Diamond')
+```
+
+##
+```{r}
+ggplot(data=NULL,aes(x=as.factor(color),y=price
+                     ,fill=color))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: Price vs Color',
+       x='Color',
+       y='Price of Diamond')
+```
+
+##
+```{r}
+ggplot(data=NULL,aes(x=as.factor(clarity),y=log(price)
+                     ,fill=clarity))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: log(Price) vs Clarity',
+       x='Clarity',
+       y='log(Price of Diamond)')
+
+```
+
+##
+```{r}
+ggplot(data=NULL,aes(x=as.factor(cut),y=log(price)
+                     ,fill=cut))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: log(Price) vs Cut',
+       x='Cut',
+       y='log(Price)of Diamond')
+```
+
+##
+```{r}
+ggplot(data=NULL,aes(x=as.factor(color),y=log(price)
+                     ,fill=color))+
+  geom_boxplot()+
+  labs(title = 'Boxplot :: log(Price) vs Color',
+       x='Color',
+       y='log(Price) of Diamond')
+
+```
+
+
+## Pair-pair Plot
+
+```{r}
+splom(data[,c(2,6,7,8,9,10,11)])
+
+```
+
+##
+```{r}
+data_con=data[,c(2,6,7,8,9,10,11)]
+a=cor(data_con)
+corr = data.matrix(cor(data_con[sapply(data_con,
+                                           is.numeric)]))
+mel = melt(corr)
+
+ggplot(mel, aes(X1,X2))+geom_tile(aes(fill=value)) +
+  geom_text(aes(label = round(value, 4)))+
+  scale_fill_gradient2(low='#003300',mid = '#ffff99' ,high='#66b3ff') +
+  labs(title = 'Correlation Heatmap')
+```
+
+
+# PRICE PREDICTION
+
+
+## Multiple Linear Regression
+```{r}
+a4=data.frame(Regression=1:4,Multiple.R_squared =1:4)
+a4[,1]=c("log(price) on x","log(price) on y","log(price) on z","log(price) on carat")
+a4[,2]=c( 0.7822,0.749,0.7418,0.8493)
+knitr::kable(a4,format="markdown")
+```
+
+
+
+## The Model
+```{r , warning=FALSE}
+data3=data2[,-c(4,5,6)]
+y=data1$price
+
+set.seed(seed=4567)
+train=which(sample.split(y,0.6)==TRUE)
+train_data=cbind(y_p=log(y[train]),data1[train,-c(1,4,5,8,9,10,11,16,23,31)])
+test_data=cbind(y_p=log(y[-train]),data1[-train,,-c(1,4,5,8,9,10,11,16,23,31)])
+y1=train_data$y_p
+model1=lm(y_p~.,train_data)
+a=summary(model1)$coefficients
+
+knitr::kable(a, format="markdown")
+```
+
+## Residual Plot
+
+```{r,warning=FALSE}
+val=cbind(fitted=predict(model1,test_data),actual=test_data[,1])
+res=rstandard(model1)
+fit_tr=predict(model1,train_data)
+#Plot of Residuals
+ggplot(NULL,aes(x=fit_tr,y=res))+
+  geom_point(size=1,col="#b30000")+
+  labs(title="Scatterplot of Residuals",
+       subtitle="Multiple Linear Regression",
+       x="Fitted values",
+       y="Residuals",
+       col="Index")
+```
+
+## Influential Observations
+
+```{r}
+h1111=hatvalues(model1)
+stud1111=studres(model1)
+ggplot(NULL,aes(x=h1111,y=stud1111))+
+  geom_point(size=1,col="#e60073")+
+  labs(title="Studentised Residuals vs Hat Values",
+       x="HatValues",
+       y="Studentised Residuals",
+       col="Index")
+
+
+
+```
+
+## Checking for heteroscedasticity
+
+```{r}
+ncvTest(model1)
+```
+
+##  Fitting the model in the test set
+
+```{r,warning=FALSE}
+meltdata=melt(val)
+ggplot(data=meltdata,aes(value,fill=X2))+
+  geom_density(alpha=.6)+
+  labs(title="Density Plot of Actual value and Fitted value of Price",
+       subtitle = "Test-Set",
+       col="Index")
+
+```
+
+## Observations
+
+```{r}
+a5=data.frame(No.=1:4,Observations=1:4)
+a5[,1]=c(1,2,3,4)
+a5[,2]=c("The value of the PRESS statistic is 4103.543 and RSS is 1363.1.","The multiple r-square for this model is approximately 0.8876. That is it explains 0.8876 proportion of total variability.","The residual plot shows pattern , hence signifies the lower efficacy of the model.","The density plot of the fitted and actual values of the log (price) in the test set shows that there is significant deviation in the values, hence the model requires certain modifications.")
+knitr::kable(a5,format="markdown")
+```
+
+
+
+## Lasso Regression
+
+-Choice of lambda
+```{r}
+set.seed(seed=1234)
+train=which(sample.split(y,0.6)==TRUE)
+train_data=cbind(y_p=log(y[train]),data1[train,-c(1,3,4,5,8,16,23,31)])
+test_data=cbind(y_p=log(y[-train]),data1[-train,-c(1,3,4,5,8,16,23,31)])
+
+X= model.matrix( ~ . - y_p - 1,train_data)
+fm.lasso= glmnet(X, train_data$y_p, alpha = 1)
+cv.lasso <- cv.glmnet(X, train_data$y_p, alpha = 1, nfolds = 50)
+plot(cv.lasso) 
+
+
+```
+
+
+## Plot of Coefficients with log lambda
+```{r}
+plot(fm.lasso, xvar = "lambda", label = TRUE)
+```
+
+## Plot of Fraction Deviance with Coefficients
+```{r}
+plot(fm.lasso, xvar = "dev", label = TRUE)
+```
+
+## Variable Selection
+
+```{r}
+s.cv <- c(lambda.min = cv.lasso$lambda.min, lambda.1se=cv.lasso$lambda.1se)
+round(coef(cv.lasso, s = s.cv), 3)
+```
+
+
+
+## The Model( Using the selected predictors)
+```{r}
+data_new=train_data[,-c(2,3,4,8,9,10,11,15,22,23)]
+model_lasso=lm(y_p~.,data_new)
+c1=summary(model_lasso)$coefficients
+knitr::kable(c1, format="markdown")
+
+```
+
+## Residual Plot
+```{r}
+res1=residuals(model_lasso)
+fitt1=predict(model_lasso)
+ggplot(NULL,aes(x=fitt1,y=res1))+
+  geom_point(size=1,col="#52527a")+
+  labs(title="Scatterplot of Residuals",
+       x="Fitted values",
+       y="Residuals",
+       col="Index")
+```
+
+## The new model (after removing the outliers in the residuals)
+
+```{r}
+outliers=which(res1>2|res1< -2)
+out1=c(6750,7230,16739,17664,30325,31012)
+train_data1=train_data[-out1,]
+data_new1=train_data1[,-c(2,3,4,8,9,10,11,15,22,23)]
+model_lasso=lm(y_p~.,data_new1)
+d1=summary(model_lasso)$coefficients
+knitr::kable(d1, format="markdown")
+```
+
+
+## Hat values vs Residuals
+
+```{r}
+hii2=hatvalues(model_lasso)
+sture2=studres(model_lasso)
+ggplot(NULL,aes(x=hii2,y=sture2))+
+  geom_point(size=1,col=7)+
+  labs(title="Scatterplot of Hat Values vs Studentised Residuals",
+       x="Hat values",
+       y="Studentised Residuals",
+       col="Index")
+
+```
+
+
+## Residual PLot
+```{r}
+res2=resid(model_lasso)
+fitt2=predict(model_lasso)
+ggplot(NULL,aes(x=fitt2,y=res2))+
+  geom_point(size=1,col="#00b36b")+
+  labs(title="Scatterplot of Residuals",
+       x="Fitted values",
+       y="Residuals",
+       col="Index")
+
+```
+
+## Plot of residuals with predictors
+
+```{r , message=FALSE}
+
+ggplot(NULL,aes(x=train_data[-out1,]$x,y=res2))+
+  geom_point(size=1,col="#ff0000")+
+  labs(title="Scatterplot of Residuals vs x",
+       x="x",
+       y="Residuals",
+       col="Index")
+```
+
+##
+
+```{r , message=FALSE}
+
+ggplot(NULL,aes(x=train_data[-out1,]$y,y=res2))+
+  geom_point(size=1,col="#4d79ff")+
+  labs(title="Scatterplot of Residuals vs y",
+       x="y",
+       y="Residuals",
+       col="Index")
+```
+
+
+##
+
+```{r , message=FALSE}
+
+ggplot(NULL,aes(x=train_data[-out1,]$z,y=res2))+
+  geom_point(size=1,col=5)+
+  labs(title="Scatterplot of Residuals vs z",
+       x="z",
+       y="Residuals",
+       col="Index")
+```
+
+
+## Q-Q Plot
+
+```{r}
+qqPlot(res2)
+```
+
+## Fitting the model in the test set
+```{r}
+data_new_test=test_data[,-c(2,3,4,8,9,10,11,15,22,23)]
+val1=cbind(fitted=predict(model_lasso,data_new_test),actual=data_new_test[,1])
+
+meltdata1=melt(val1)
+ggplot(data=meltdata1,aes(value,fill=X2))+
+  geom_density(alpha=.6)+
+  labs(title="Density Plot of Actual value and Fitted value of Price",
+       subtitle = "Test-Set",
+       col="Index")
+
+```
+
+
+## Observing for Box-Cox Transformation of the response
+
+```{r}
+set.seed(seed=1234)
+train=which(sample.split(y,0.6)==TRUE)
+train_data2=cbind(y_p2=(((y[train])^0.1)-1)/0.1,data1[train,-c(1,3,4,5,8,16,23,31)])
+test_data2=cbind(y_p2=(((y[-train])^0.1)-1)/0.1,data1[-train,-c(1,3,4,5,8,16,23,31)])
+
+X= model.matrix( ~ . - y_p2 - 1,train_data2)
+fm.lasso2= glmnet(X, train_data2$y_p2, alpha = 1)
+cv.lasso2 <- cv.glmnet(X, train_data2$y_p, alpha = 1, nfolds = 50)
+data_new111=train_data2[,-c(2,3,4,8,9,10,11,15,22,23)]
+model_lasso2=lm(y_p2~.,data_new111)
+c2=summary(model_lasso2)$coefficients
+res12=residuals(model_lasso2)
+fitt12=predict(model_lasso2)
+hii22=hatvalues(model_lasso2)
+PRESS2=sum((res12/(1-hii22))^2)
+ggplot(NULL,aes(x=fitt12,y=res12))+
+  geom_point(size=1,col="#4d004d")+
+  labs(title="Scatterplot of Residuals",
+       x="Fitted values",
+       y="Residuals",
+       col="Index")
+```
+
+
+## Residual vs Fitted (After removing the outliers)
+
+```{r}
+outliers2=which(abs(res12)>2)
+train_data122=train_data2[-outliers,]
+data_new12=train_data122[,-c(2,3,4,8,9,10,11,15,22,23)]
+model_lasso22=lm(y_p2~.,data_new12)
+d2=summary(model_lasso22)$coefficients
+res223=resid(model_lasso22)
+fit223=predict(model_lasso22)
+ggplot(NULL,aes(x=fit223,y=res223))+
+  geom_point(size=1,col="#009999")+
+  labs(title="Scatterplot of Residuals",
+       x="Fitted values",
+       y="Residuals",
+       col="Index")
+```
+
+## Q-Q Plot of Residuals
+```{r}
+qqPlot(res223)
+```
+
+## Fitting in the test data
+
+```{r}
+data_new_test2=test_data2[,-c(2,3,4,8,9,10,11,15,22,23)]
+val12=cbind(fitted=predict(model_lasso22,data_new_test2),actual=data_new_test2[,1])
+meltdata12=melt(val12)
+ggplot(data=meltdata12,aes(value,fill=X2))+
+  geom_density(alpha=.6)+
+  labs(title="Density Plot of Actual value and Fitted value of Price",subtitle = "Test-Set",
+       col="Index")
+```
+
+##
+
+```{r}
+knitr::kable(d2, format="markdown")
+```
+
+
+## Observations
+
+```{r}
+a6=data.frame(No.=1:4,Observations=1:4)
+a6[,1]=c(1,2,3,4)
+a6[,2]=c("PRESS is 2124.267 and RSS is 832.9(using log transformation) .PRESS is 2716.538 and RSS is 756.3(using Box-Cox transformation)","LASSO enabled to choose 13 predictors for regression which explains 95% of the total variability.","The residual plot do not shows any systematic pattern and well spread near the zero line, hence justifies the efficacy of the model.","On choosing Box-Cox transformation of the response , density plot in the test set shows better fit than that of the log transformation.")
+knitr::kable(a6,format="markdown")
+```
+
+
+
+
+## Conclusion
+```{r}
+a6=data.frame(No.=1:7,Conclusion=1:7)
+a6[,1]=c(1,2,3,4,5,6,7)
+a6[,2]=c("In the light of the given data , it seems that price of diamond significantly depends on carat , x , y , z and depth(in percent) , ’table’ do not as such affect price of diamond.","For , the categorical predictors ’clarity’ , ’cut’ , ’color’ the outliers are significantly visible in each levels.","While finding a suitable model , the model obtained by ordinary least square based on the predictors chosen by observing multicollinearity by correlation heat map is less efficient than that of the model obtained by least squares based on the variables chosen by LASSO.","The density plot of the actual values and fitted values on the test set shows significant improvement than that of in the previous case.","The value of PRESS decreases significantly for the second case(log and Box-Cox Transformation).","To be observed , the value of residual sum of squares in the test set also significantly decreases for the second case(Log and Box-Cox Transformation)","The Log transformation is considered to be best as it has the lowest PRESS though Box-Cox Transformation shows better fit in for actual and fitted values in test set.")
+knitr::kable(a6,format="markdown")
+```
+
+
+## ...Thank You...
